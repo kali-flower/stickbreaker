@@ -7,6 +7,7 @@ const BRANCH_WIDTH: i32 = 60;
 const BRANCH_HEIGHT: i32 = 10;
 const PIXEL_SIZE: f32 = 10.0;
 const BREAK_THRESHOLD: i32 = 8;
+const INITIAL_LIVES: i32 = 3;
 
 struct GameObject {
     rect: Rect,
@@ -28,6 +29,7 @@ struct Branch {
 enum GameState {
     Playing,
     Won,
+    Lost,
 }
 
 #[macroquad::main("Stickbreaker")]
@@ -51,10 +53,11 @@ async fn main() {
 
     let mut branch = Branch {
         pixels: vec![vec![true; BRANCH_WIDTH as usize]; BRANCH_HEIGHT as usize],
-        pos: vec2(50.0, 100.0),
+        pos: vec2(screen_width() - BRANCH_WIDTH as f32 * PIXEL_SIZE, 100.0),
     };
 
     let mut game_state = GameState::Playing;
+    let mut lives = INITIAL_LIVES;
 
     loop {
         clear_background(WHITE);
@@ -114,6 +117,18 @@ async fn main() {
 
                 ball.pos = new_pos;
 
+                // check if ball falls off the paddle
+                if ball.pos.y + ball.size > screen_height() {
+                    lives -= 1;
+                    if lives > 0 {
+                        // respawn ball
+                        ball.pos = vec2(screen_width() / 2.0, screen_height() / 2.0);
+                        ball.vel = vec2(200.0, -200.0);
+                    } else {
+                        game_state = GameState::Lost;
+                    }
+                }
+
                 // check if branch is broken (8 pixels in a column are destroyed)
                 let mut branch_broken = false;
                 for x in 0..BRANCH_WIDTH {
@@ -146,9 +161,26 @@ async fn main() {
                         }
                     }
                 }
+
+                // draw lives
+                for i in 0..lives {
+                    draw_text("♥", 10.0 + i as f32 * 30.0, 30.0, 40.0, RED);
+                }
             }
             GameState::Won => {
                 let text = "You Won!";
+                let text_size = 40.0;
+                let text_dims = measure_text(text, None, text_size as u16, 1.0);
+                draw_text(
+                    text,
+                    screen_width() / 2.0 - text_dims.width / 2.0,
+                    screen_height() / 2.0,
+                    text_size,
+                    BLACK,
+                );
+            }
+            GameState::Lost => {
+                let text = "Game Over!";
                 let text_size = 40.0;
                 let text_dims = measure_text(text, None, text_size as u16, 1.0);
                 draw_text(
